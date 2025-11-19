@@ -1,0 +1,53 @@
+# cyber_pipeline.py
+# Minimal example: load sample logs, extract simple features, train IsolationForest and RandomForest
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import IsolationForest, RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, roc_auc_score
+
+
+# Sample data: we build a toy dataset
+data = [
+{'request':'GET /index.php?id=1', 'label':0},
+{'request':'GET /search?q=flowers', 'label':0},
+{'request':'GET /index.php?id=1 OR 1=1', 'label':1},
+{'request':'GET /login.php?user=admin\' --', 'label':1},
+{'request':'POST /api/upload', 'label':0},
+]
+df = pd.DataFrame(data)
+
+
+# Feature: TF-IDF on request text
+vec = TfidfVectorizer(ngram_range=(1,3), max_features=50)
+X_text = vec.fit_transform(df['request']).toarray()
+
+
+# Train/test
+X = X_text
+y = df['label'].values
+X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.4, random_state=42)
+
+
+# Supervised model
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
+probs = clf.predict_proba(X_test)[:,1]
+print('Supervised classification report:')
+print(classification_report(y_test, clf.predict(X_test)))
+
+
+# Anomaly detection
+iso = IsolationForest(contamination=0.3, random_state=42)
+iso.fit(X_train)
+anomaly_score = -iso.decision_function(X_test) # higher => more anomalous
+print('Anomaly scores:', anomaly_score)
+
+
+# Save results
+out = pd.DataFrame({ 'request': df.loc[X_test.shape[0]*[0],'request'] if False else ['(sample)']*X_test.shape[0],
+'label': y_test,
+'prob': probs,
+'anomaly': anomaly_score})
+print(out)
