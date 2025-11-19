@@ -1,0 +1,41 @@
+# healthcare_recommender.py
+import pandas as pd
+
+
+# Toy patient profile
+patient = {
+'age': 55,
+'bmi': 31.2,
+'steps_avg': 6400,
+'last_hba1c_months': 14,
+'on_antihypertensive': True,
+}
+
+
+# Candidate rules
+candidates = [
+{'id':'increase_steps','text':'Increase daily steps by 1500'},
+{'id':'schedule_hba1c','text':'Schedule HbA1c test'},
+{'id':'salt_reduction','text':'Reduce daily salt intake'},
+{'id':'flu_vaccine','text':'Get seasonal flu vaccine'},
+]
+
+
+# Simple scoring function: higher score = better fit
+def score_candidate(patient, cand):
+s = 0
+if cand['id']=='increase_steps':
+s += max(0, (8000 - patient['steps_avg'])/1000)
+if cand['id']=='schedule_hba1c':
+s += 2 if patient['last_hba1c_months']>12 else 0
+if patient['bmi']>30: s += 0.5
+if cand['id']=='salt_reduction':
+s += 0.5 if patient['on_antihypertensive'] else 0
+if cand['id']=='flu_vaccine':
+s += 0.3 if patient['age']>50 else 0.1
+return s
+
+
+ranked = sorted([(c, score_candidate(patient,c)) for c in candidates], key=lambda x: x[1], reverse=True)
+for c, sc in ranked:
+print(f"{c['text']} — score {sc:.2f}")
